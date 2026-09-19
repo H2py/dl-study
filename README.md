@@ -1,1 +1,2 @@
-# dl-study
+# DL-study
+> Deep learning study for CVLab
