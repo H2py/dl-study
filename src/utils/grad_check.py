@@ -10,6 +10,28 @@
 
 import numpy as np
 
+def flatten_deep_params(parameters):
+    flat = np.array([])
+
+    for name in parameters:
+        flat = np.append(flat, parameters[name].flatten())
+
+    return flat
+
+
+def unflatten_deep_params(flat, original):
+    parameters = {}
+    start = 0
+
+    for name in original:
+        size = original[name].size
+        shape = original[name].shape
+
+        parameters[name] = flat[start:start + size].reshape(shape)
+        start += size
+
+    return parameters
+
 def flatten_params(w, b):
     return np.append(w.flatten(), b)
 

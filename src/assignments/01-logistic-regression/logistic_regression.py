@@ -2,8 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from utils.grad_check import grad_check, flatten_params, unflatten_params
+
+def make_spiral(n_per_class=200, noise=0.12, seed=0, turns=1.6):
+    rng = np.random.default_rng(seed)
+    X, y = [], []
+    for k in (0, 1):
+        r = np.linspace(0.08, 1.0, n_per_class)
+        t = np.linspace(0, turns*2*np.pi, n_per_class) + k*np.pi
+        xx = r*np.sin(t) + rng.normal(scale=noise, size=n_per_class)*r
+        yy = r*np.cos(t) + rng.normal(scale=noise, size=n_per_class)*r
+        X.append(np.stack([xx, yy], 1)); y.append(np.full(n_per_class, k))
+    return np.concatenate(X).T, np.concatenate(y).reshape(1, -1)
 
 def save_cost_plot(costs, iter):
     iterations = np.arange(0, iter, 100)
@@ -186,64 +201,75 @@ def model(X_train, Y_train, X_test, Y_test, num_iterations, learning_rate):
 
     return result
 
-
-
 def main():
-    digits = load_digits()
-    mask = (digits.target == 5) | (digits.target == 3)
-    X, y = digits.data[mask], digits.target[mask]        # (360, 64), (360,)
+    X_train, Y_train = make_spiral(200, 0.12, 0)
+    X_test, Y_test = make_spiral(500, 0.12, 99)
 
-    y = (y == 5).astype(int)
-    X_tr, X_te, y_tr, y_te = train_test_split(
-    X, y, test_size=0.2, random_state=0, stratify=y)
+    result = model(
+        X_train, Y_train, X_test, Y_test,
+        num_iterations=30000,
+        learning_rate=0.5
+    )
 
-    X_train = X_tr.T / 16.0        # (64, 288)
-    X_test  = X_te.T / 16.0        # (64, 72)
-    Y_train = y_tr.reshape(1, -1)  # (1, 288)
-    Y_test  = y_te.reshape(1, -1)  # (1, 72)
+    print("W:", result["params"]["w"].T)
+    print("b:", result["params"]["b"])
 
-    # 기울기 검증
-    X_small = X_train[:, :10]
-    Y_small = Y_train[:, :10]
+# def main():
+#     digits = load_digits()
+#     mask = (digits.target == 5) | (digits.target == 3)
+#     X, y = digits.data[mask], digits.target[mask]        # (360, 64), (360,)
 
-    w, b = initialize(X_small.shape[0])
-    w_shape = w.shape
+#     y = (y == 5).astype(int)
+#     X_tr, X_te, y_tr, y_te = train_test_split(
+#     X, y, test_size=0.2, random_state=0, stratify=y)
 
-    def cost_fn(theta):
-        check_w, check_b = unflatten_params(theta, w_shape)
-        _, cost = propagate(check_w, check_b, X_small, Y_small)
-        return cost
+#     X_train = X_tr.T / 16.0        # (64, 288)
+#     X_test  = X_te.T / 16.0        # (64, 72)
+#     Y_train = y_tr.reshape(1, -1)  # (1, 288)
+#     Y_test  = y_te.reshape(1, -1)  # (1, 72)
 
-    theta = flatten_params(w, b)
+#     # 기울기 검증
+#     X_small = X_train[:, :10]
+#     Y_small = Y_train[:, :10]
 
-    grads, _ = propagate(w, b, X_small, Y_small)
-    analytic_grad = flatten_params(grads["dw"], grads["db"])
+#     w, b = initialize(X_small.shape[0])
+#     w_shape = w.shape
 
-    difference = grad_check(cost_fn, theta, analytic_grad)
-    print(f"기울기 검증 상대 오차: {difference:.10e}")
-    print(f"기울기 검증 통과: {difference < 1e-7}")
+#     def cost_fn(theta):
+#         check_w, check_b = unflatten_params(theta, w_shape)
+#         _, cost = propagate(check_w, check_b, X_small, Y_small)
+#         return cost
 
-    # 이후 기존 sigmoid 검사와 model 학습 코드
+#     theta = flatten_params(w, b)
 
-    # print(f"X_train shape = {X_train.shape}")
-    # print(f"X_train [0,:] = \n {X_train[:,0]}") # X_train[:,i] = i번째 이미지에 대한 모든 행, 열 pixel value들 나열
-    # print(f"X_train = \n {X_train[0,:]}") # 의미없는 값, 각 이미지의 0번째 행 pixel value를 가져옴
-    #최댓값 최솟값은 각각 1, 0으로 고정 (pixel value)
+#     grads, _ = propagate(w, b, X_small, Y_small)
+#     analytic_grad = flatten_params(grads["dw"], grads["db"])
 
-    test_1 = sigmoid([-1000, 0, 1000])
-    test_2 = sigmoid([-100, 0, 100])
-    print(f"Sigmoid test done : {test_1, test_2}")
+#     difference = grad_check(cost_fn, theta, analytic_grad)
+#     print(f"기울기 검증 상대 오차: {difference:.10e}")
+#     print(f"기울기 검증 통과: {difference < 1e-7}")
 
-    iter = 2000
-    lr = 500000000000
-    result = model(X_train, Y_train, X_test, Y_test, num_iterations=iter, learning_rate=lr)
+#     # 이후 기존 sigmoid 검사와 model 학습 코드
+
+#     # print(f"X_train shape = {X_train.shape}")
+#     # print(f"X_train [0,:] = \n {X_train[:,0]}") # X_train[:,i] = i번째 이미지에 대한 모든 행, 열 pixel value들 나열
+#     # print(f"X_train = \n {X_train[0,:]}") # 의미없는 값, 각 이미지의 0번째 행 pixel value를 가져옴
+#     #최댓값 최솟값은 각각 1, 0으로 고정 (pixel value)
+
+#     test_1 = sigmoid([-1000, 0, 1000])
+#     test_2 = sigmoid([-100, 0, 100])
+#     print(f"Sigmoid test done : {test_1, test_2}")
+
+#     iter = 2000
+#     lr = 500000000000
+#     result = model(X_train, Y_train, X_test, Y_test, num_iterations=iter, learning_rate=lr)
     
-    costs = result["costs"]
+#     costs = result["costs"]
     
-    print(f"Train 정확도: {result['train_accuracy']} Iteration : {iter} Learning rate : {lr}")
-    print(f"Test 정확도: {result['test_accuracy']}")
+#     print(f"Train 정확도: {result['train_accuracy']} Iteration : {iter} Learning rate : {lr}")
+#     print(f"Test 정확도: {result['test_accuracy']}")
     
-    # save_cost_plot(costs, iter)
+#     # save_cost_plot(costs, iter)
 
 
 if __name__ == "__main__":
